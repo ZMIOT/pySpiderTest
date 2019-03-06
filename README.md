@@ -1,0 +1,1 @@
+some code from the process of my learning python
