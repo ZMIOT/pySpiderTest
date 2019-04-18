@@ -16,36 +16,23 @@ class doubanMoiveSpider(object):
         soup=BeautifulSoup(res.text,'lxml')
         jsonstr=json.loads(soup.text,'utf-8')
         movies=jsonstr['subjects']
-        #print(movies)
         for movie in movies:
             title=movie.get('title')
             score=movie.get('rate')
             imgurl=movie.get('cover')
-            url=movie.get('url')
-            Assurl=self.getAssessUrl(url)
-            self.saveDb(title,score,imgurl,Assurl)
+            self.saveDb(title,score,imgurl)
 
-    def saveDb(self,title,score,url,Assurl):
+    def saveDb(self,title,score,url):
         db=pymysql.connect('localhost','root','123456','pyData')
         cursor = db.cursor()
-        sql = "insert into hotmovie(title,score,imgurl,Assurl)" \
-              "values ('%s','%s','%s','%s')"%(title,score,url,Assurl)
+        sql = "insert into hotmovie(title,score,imgurl)" \
+              "values ('%s','%s','%s')"%(title,score,url)
         try:
             cursor.execute(sql)
             db.commit()
         except:
             db.rollback()
         cursor.close()
-    def getAssessUrl(self,url):
-        resAss=requests.get(url,self.headers)
-        soupAss=BeautifulSoup(resAss.text,'lxml')
-        Assurl=soupAss.select('div.main-bd> h2>a')
-        if(Assurl):
-            return Assurl[0].extract().get('href')
-        else:
-            return ""
-
-
 
 def main():
     for i in range(0,160,20):

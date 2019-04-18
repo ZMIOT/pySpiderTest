@@ -26,6 +26,12 @@ class doubanMoiveSpider(object):
                 self.savehtmlDb(booktag,markname)
             else:
                print("表不存在")
+    def getDescription(self,url):
+        html=requests.get(url,self.headers)
+        soup=BeautifulSoup(html.text,'lxml')
+        text=soup.select('div.intro>p')
+        for txt in text:
+            return txt.text
 
     #这里抓取各个类别下的书籍进行存取
     def getBook(self):
@@ -33,13 +39,14 @@ class doubanMoiveSpider(object):
         self.getTag('booktag')
         base_tag=""
         tags=""
-        print(self.taglist)
+        #print(self.taglist)
         for urltag in self.taglist:
             url=base_url+urltag
             tags=urltag.split('/')[2]
             res=requests.get(url,headers=self.headers)
             soup=BeautifulSoup(res.text,'lxml')
             books=soup.select('#subject_list > ul > li')
+            #print(books)
             for book in books:
                 imgurlzz=r'^https://.+\.jpg$'#获取书籍图片的正则
                 bookzz=r'.+'
@@ -48,14 +55,22 @@ class doubanMoiveSpider(object):
                 bookname=bookname.get('title')
                 imgurl=book.find(name='img',attrs={"src":re.compile(imgurlzz)})
                 imgurl=imgurl.get('src')
+                bookurl=book.find(name='a',attrs={"href":re.compile(r'^https://.+')})
+                description=self.getDescription(bookurl.extract().get('href'))
                 score=book.find(name='span',attrs={"class":"rating_nums"})
+                if(score!=None):
+                    score=score.text
+                else:
+                    score=""
                 author=book.find(name="div",attrs={"class":'pub'})
                 author=author.text.strip().split('/')[0]
+                author=author.strip();
                 if(self.table_exists('booklist')==1):
-                    self.saveDb(bookname,author,score,imgurl,tags)
+                    self.saveDb(bookname,author,score,imgurl,tags,description)
                 else:
                     createDb()
-                    self.saveDb(bookname,author,score,imgurl,tags)
+                    self.saveDb(bookname,author,score,imgurl,tags,description)
+
 
     def table_exists(self,table_name):
         #这个函数用来判断表是否存在
@@ -78,11 +93,11 @@ class doubanMoiveSpider(object):
         dbresult=cursor.fetchall()
         for booktag in dbresult:
             self.taglist[booktag[0]]=booktag[1]
-    def saveDb(self,bookname,author,score,imgurl,mark):
+    def saveDb(self,bookname,author,score,imgurl,mark,description):
         db=pymysql.connect('localhost','root','123456','pyData')
         cursor = db.cursor()
         sql = "insert into booklist(bookname,author,score,discription,imgurl,mark)" \
-              "values ('%s','%s','%s','%s','%s','%s')"%(bookname,author,score,"",imgurl,mark)
+              "values ('%s','%s','%s','%s','%s','%s')"%(bookname,author,score,description,imgurl,mark)
         try:
             cursor.execute(sql)
             db.commit()
@@ -124,6 +139,7 @@ def createDb():
     db.close()
 
 def main():
+    createDb()
     base_url='https://book.douban.com/tag/?view=cloud'
     MoiveSpider=doubanMoiveSpider(base_url)
     MoiveSpider.getHtml()
